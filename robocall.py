@@ -143,6 +143,21 @@ class Call:
         self.sco_nodes: Optional[SCONodes] = None
         self._record_proc: Optional[subprocess.Popen] = None
 
+    @staticmethod
+    def _dismiss_phone_ui():
+        """Dismiss any popups and go to home screen.
+
+        Android shows error popups (e.g. "Mobile network not available") on top
+        of the dialer. These block future calls if not dismissed.
+        """
+        try:
+            # Press back to dismiss any dialog, then go home
+            _adb("shell", "input keyevent KEYCODE_BACK")
+            time.sleep(0.5)
+            _adb("shell", "input keyevent KEYCODE_HOME")
+        except ADBError:
+            pass
+
     def _find_sco_nodes(self, timeout: int = 15) -> SCONodes:
         """Find PipeWire SCO nodes for this Bluetooth device."""
         mac_underscored = self.phone_mac.replace(":", "_")
@@ -210,6 +225,8 @@ class Call:
                 reason = reason_match.group(1) if reason_match else "unknown"
                 self.status = CallStatus.FAILED
 
+                self._dismiss_phone_ui()
+
                 if any(kw in reason.lower() for kw in ("network", "radio", "service", "out_of_service")):
                     raise NoSignalError(f"Call failed: {reason}")
                 elif "busy" in reason.lower():
@@ -221,6 +238,7 @@ class Call:
             time.sleep(1)
 
         self.status = CallStatus.NO_ANSWER
+        self._dismiss_phone_ui()
         raise CallFailedError("Call was not answered within timeout")
 
     def play(self, audio_file: str, block: bool = True) -> subprocess.Popen:
@@ -327,6 +345,7 @@ class Call:
             _adb("shell", "input keyevent KEYCODE_ENDCALL")
         except ADBError:
             pass
+        self._dismiss_phone_ui()
         self.status = CallStatus.COMPLETED
         self.end_time = datetime.now()
         if self.start_time:

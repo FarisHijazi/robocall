@@ -57,6 +57,11 @@ for i in $(seq 1 90); do
         reason=$(adb shell "dumpsys telecom" 2>&1 | grep -A12 "Call TC@${NEXT_ID}:" | grep "callTerminationReason" | head -1)
         echo "  Call FAILED: $reason"
 
+        # Dismiss any error popups and go home
+        adb shell "input keyevent KEYCODE_BACK" 2>/dev/null
+        sleep 0.5
+        adb shell "input keyevent KEYCODE_HOME" 2>/dev/null
+
         if echo "$reason" | grep -qi "network\|radio\|service"; then
             echo "  Signal issue, waiting 30s and retrying..."
             sleep 30
@@ -74,6 +79,9 @@ done
 if [ "$CONNECTED" = false ]; then
     echo "  TIMEOUT waiting for connection"
     adb shell "input keyevent KEYCODE_ENDCALL" 2>&1 || true
+    adb shell "input keyevent KEYCODE_BACK" 2>/dev/null
+    sleep 0.5
+    adb shell "input keyevent KEYCODE_HOME" 2>/dev/null
     echo "  Retrying in 30s..."
     sleep 30
     exec "$0" "$@"
