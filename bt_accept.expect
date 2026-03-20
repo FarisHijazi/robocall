@@ -1,0 +1,55 @@
+#!/usr/bin/expect -f
+# Wait for incoming pairing from phone and auto-accept
+set timeout 120
+
+spawn bluetoothctl
+expect "#"
+
+send "agent on\r"
+expect "#"
+
+send "default-agent\r"
+expect "#"
+
+send "pairable on\r"
+expect "#"
+
+send "discoverable on\r"
+expect "#"
+
+puts "\n=== Waiting for phone to initiate pairing... ==="
+puts "=== Go to phone Bluetooth settings and tap 'buzastation' ==="
+puts ""
+
+# Wait for pairing request
+expect {
+    "Confirm passkey" {
+        puts "\n>>> Got pairing request, confirming..."
+        send "yes\r"
+        expect {
+            "Paired: yes" { puts "\n=== PAIRED! ===" }
+            "Pairing successful" { puts "\n=== PAIRED! ===" }
+            timeout { puts "\n=== Waiting for phone confirmation... ===" }
+        }
+    }
+    "Request confirmation" {
+        puts "\n>>> Got confirmation request..."
+        send "yes\r"
+        expect {
+            "Paired: yes" { puts "\n=== PAIRED! ===" }
+            "Pairing successful" { puts "\n=== PAIRED! ===" }
+            timeout { puts "\n=== Waiting... ===" }
+        }
+    }
+    timeout { puts "\n=== TIMEOUT waiting for pairing ==="; exit 1 }
+}
+
+# Wait for connection
+sleep 5
+
+send "info 64:A2:F9:B8:21:94\r"
+expect "#"
+
+sleep 2
+send "quit\r"
+expect eof

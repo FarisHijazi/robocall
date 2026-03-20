@@ -1,0 +1,44 @@
+#!/usr/bin/expect -f
+# Connect to already-paired phone and authorize HFP service
+set timeout 30
+set mac "64:A2:F9:B8:21:94"
+
+spawn bluetoothctl
+expect "#"
+
+send "agent on\r"
+expect "#"
+
+send "default-agent\r"
+expect "#"
+
+send "connect $mac\r"
+
+# Handle service authorization requests
+set done 0
+while {!$done} {
+    expect {
+        "Authorize service" {
+            send "yes\r"
+        }
+        "Connection successful" {
+            puts "\n=== CONNECTED ==="
+            set done 1
+        }
+        "Failed to connect" {
+            puts "\n=== CONNECTION FAILED ==="
+            set done 1
+        }
+        timeout {
+            puts "\n=== TIMEOUT ==="
+            set done 1
+        }
+    }
+}
+
+sleep 3
+send "info $mac\r"
+expect "#"
+sleep 1
+send "quit\r"
+expect eof

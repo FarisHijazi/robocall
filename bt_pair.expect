@@ -1,0 +1,54 @@
+#!/usr/bin/expect -f
+set timeout 30
+set mac "64:A2:F9:B8:21:94"
+
+spawn bluetoothctl
+expect "#"
+
+send "agent on\r"
+expect "#"
+
+send "default-agent\r"
+expect "#"
+
+send "pairable on\r"
+expect "#"
+
+send "scan on\r"
+expect {
+    "OnePlus 6T" { }
+    timeout { puts "ERROR: Phone not found"; exit 1 }
+}
+sleep 2
+
+send "scan off\r"
+expect "#"
+
+send "trust $mac\r"
+expect "trust succeeded"
+
+send "pair $mac\r"
+expect {
+    "Confirm passkey" {
+        # Auto-confirm on PC side
+        send "yes\r"
+        # Also confirm on phone via ADB (run in background)
+        exec bash -c "sleep 2 && sudo adb shell 'input keyevent KEYCODE_HOME' && sleep 1 && sudo adb shell screencap -p /sdcard/pair_dialog.png && sudo adb pull /sdcard/pair_dialog.png /tmp/pair_dialog.png" &
+        # Wait a bit for phone UI to process, then tap PAIR on the phone
+        exec bash -c "sleep 3 && sudo adb shell 'uiautomator dump /sdcard/ui_pair.xml' && sudo adb pull /sdcard/ui_pair.xml /tmp/ui_pair.xml && grep -oP 'text=\"PAIR\".*?bounds=\"\\K[^\"]*' /tmp/ui_pair.xml > /tmp/pair_bounds.txt 2>/dev/null; grep -oP 'text=\"Pair\".*?bounds=\"\\K[^\"]*' /tmp/ui_pair.xml >> /tmp/pair_bounds.txt 2>/dev/null; echo 'UI dumped'" &
+        expect {
+            "Pairing successful" { puts "\nPairing successful!" }
+            "AuthenticationFailed" { puts "\nAuth failed - need to confirm on phone" }
+            timeout { puts "\nPairing timed out" }
+        }
+    }
+    "Pairing successful" { puts "\nPairing successful!" }
+    timeout { puts "ERROR: Pairing timed out"; exit 1 }
+}
+
+sleep 5
+send "info $mac\r"
+expect "#"
+sleep 1
+send "quit\r"
+expect eof
